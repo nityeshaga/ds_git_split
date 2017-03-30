@@ -1,0 +1,39 @@
+Creating the first node of a new list
+Enter the data
+
+Enter 1 to insert a new node at the end of the list
+Enter 2 to insert a new node at the start of the list
+Enter 3 to specify the position and insert the node there
+Enter 4 to delete a node at the chosen position
+Enter 5 to print the list
+Enter 0 to quit this menu
+Creating a node at the 1 position
+Enter the data
+
+Enter 1 to insert a new node at the end of the list
+Enter 2 to insert a new node at the start of the list
+Enter 3 to specify the position and insert the node there
+Enter 4 to delete a node at the chosen position
+Enter 5 to print the list
+Enter 0 to quit this menu
+Enter the position of the node that you want to delete
+Node at position 0 deleted
+
+Enter 1 to insert a new node at the end of the list
+Enter 2 to insert a new node at the start of the list
+Enter 3 to specify the position and insert the node there
+Enter 4 to delete a node at the chosen position
+Enter 5 to print the list
+Enter 0 to quit this menu
+Enter the position of the node that you want to delete
+Node at position 0 deleted
+
+Enter 1 to insert a new node at the end of the list
+Enter 2 to insert a new node at the start of the list
+Enter 3 to specify the position and insert the node there
+Enter 4 to delete a node at the chosen position
+Enter 5 to print the list
+Enter 0 to quit this menu
+Printing the list:
+no of nodes: 0
+Error occured
