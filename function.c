@@ -47,11 +47,6 @@ int insert(void *l, int pos, int type)	//working
 					prev_node->next= current;
 				++(list->noOfNodes);
 			}
-
-
-			//free(current);
-
-
 			break;
 
 		default:
@@ -128,7 +123,7 @@ int deleteNode(void *l, int pos, int type)	//improvisations possible //check why
 }
 
 /*printRev(): prints the list of 'type' type pointed to by 'l'  in reverse order*/
-int printRev(void *l, int type)		//bug- unable to use printlist() or delete after printRev() call
+int printRev(void *l, int type)		//working
 {
 	switch(type) {
 		case SLL:
@@ -136,23 +131,20 @@ int printRev(void *l, int type)		//bug- unable to use printlist() or delete afte
 				list_sll *list= (list_sll *)l;
 				int i= list->noOfNodes-1;
 				node_sll *subject= malloc(sizeof(node_sll));
-				node_sll *temp= subject;	/*store in order to free later*/
+				node_sll *temp= subject;	/*store the original address stored in subject*/
 				subject->next= list->start;
-				node_sll *front= NULL;	/*node directly in front of subject*/
+				node_sll *front= NULL;	/*node that will be directly in front of subject*/
 				do {
 					while(subject->next!=front)
 						subject= subject->next;
 					printf("%d. %d\n", i, subject->data);
-							printf("%d\n", list->start->data);
-							printf("%d\n", list->start->next->data);
-							printf("%d\n", list->start->next->next->data);
-							printf("%d\n", list->start->next->next->next->data);
 					front= subject;
+					subject= temp;
 					subject->next= list->start;
 					--i;
 				}
 				while(front!=list->start);
-				//free(temp);
+				free(subject);
 			}
 			break;
 		default:
