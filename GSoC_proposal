@@ -1,0 +1,273 @@
+# NEXTGEN ACTION SYSTEM
+
+-------------------------
+
+## STUDENT INFO
+
+**Name**- Nityesh Agarwal  
+**Github Username**- nityeshaga  
+**Email**- nityeshagarwal@gmail.com  
+**Country**- India  
+**City**- Howrah  
+**Timezone**- UTC + 5:30 (Indian Standard Time)  
+
+-------------------------
+## CODE SAMPLE
+
+Commits authored by me- https://github.com/coala/coala/commits/master?author=nityeshaga
+
+Pull Requests reviewed- https://github.com/coala/coala/pulls?q=is%3Apr+reviewed-by%3Anityeshaga+is%3Aclosed
+
+I have finished the coala newcomer guide and have been promoted to be a part of coala's developer group.
+
+--------------------------
+## PROJECT INFO
+
+I am applying for a new project that I proposed here- https://github.com/coala/projects/pull/475
+
+This project will improve the coala core by allowing for a more dynamic handling of actions and the `Result` objects that they are applied to. In particular, this would enable bear writers to write bears that can act in more advanced ways and offer better patches.
+
+I would also like to mention that by completing this project, coala would be able to support multiple diffs and be able to take user's input into consideration when applying a patch. These are the improvements that are also required by the [Improve Diff Handling project](http://projects.coala.io/#/projects?project=improve_diff_handling&lang=en).
+
+**_I am proposing this project based on the lengthy and ongoing discussions that I have with Mischa Kruger (my first preference for the mentor)._** 
+
+### Mentors: 
+* PRIMARY- Mischa Kruger (@Makman2)  
+* SECONDARY- John Vandenberg (@jayvdb)
+
+### About:
+
+The project aims at improving the coala core by improving the definitions of `Result` class and the various action classes.
+I propose to do the following tasks in order to complete the project successfully:
+
+1. Allow `Result` objects to define the actions applicable to them
+1. Make `Diff` objects a part of `ApplyPatchAction` objects instead of `Result` objects
+1. Revamp the action classes' hierarchy and represent actions as callables
+1. Refactor the existing action classes
+1. Refactor the code in ConsoleInteraction.py
+
+### Detailed Summary:
+
+#### Task 1- Allow `Result` objects to define the actions applicable to them
+
+* WHY--  
+
+  Doing this will allow us to give `Result` objects more control over the interaction process. By not having a fixed global like set of action objects, coala will be able to specialise the interaction process based on each `Result` object's individual needs. The bear writers will be able to specify custom action class instances that they want to be applied on the results or even create multiple objects of the same action class.
+  
+* HOW--  
+
+   I propose to define a new attribute in the `Result` class - `actions_list`: a list of action objects that can be applied on the result. 
+   
+   In order to achieve this while doing a proper deprecation, we may use the existing `is_applicable()` method and modify the `Result` class's constructor like this:
+   ```
+   class Result:
+   def __init__(.., new_actions= [], ...):
+       # code..
+       self.actions_list = []
+       for action in CLI_ACTIONS:
+           if action.is_applicable(.., self, ...):
+               self.actions_list.append(action())
+       for action in new_action:
+           self.actions_list.append(action())
+       # code..
+    ```
+  
+#### Task 2- Make `Diff` objects a part of `ApplyPatchAction` objects instead of `Result` objects
+
+* WHY--  
+
+  At present, each `Result` object can be associated with exactly one `Diff` object from each file--
+  ```
+  :param diffs:
+      A dictionary with filename as key and ``Diff`` object
+      associated with it as value.
+  ```
+  We need more flexibility in the way we define `diffs` so as to allow the possibility of taking user's preferences into account when defining them. 
+  
+  After completing Task 1, each result object will have its own set of action objects associated with it. This makes the solution to the above problem evident:
+  We can move the `Diff` object from `Result` class' `diffs` parameter to `ApplyPatchAction` object that is associated with each `Result` object.
+  
+  * This structure will be useful in allowing a bear to suggest multiple patches.
+  ```
+  yield new Result(..., actions_list=[ApplyPatchAction(diffset1), ApplyPatchAction(diffset2)], ...)
+  ```
+  * This would also allow bear writers to create actions that can incorporate input from the user into the diffs offered.
+
+* HOW--  
+
+  `ApplyPatchAction` will do something like this:
+  ```
+  class ApplyPatchAction(ResultAction):
+      def __init__(self, diffs):
+          self.diffs = diffs
+          # code..
+  ```
+  We will also need to modify the `__init__()` for `Result` in order to prevent this change from breaking other bears' code. Here's how we can do this--
+  ```
+  class Result
+      def __init__(.., diffs= None, ..):
+          # code..
+          if diffs:
+              self.actions_list.append(ApplyPatchAction(.., diffs)
+          # code..
+   ```
+
+#### Task 3- Revamp the action classes' hierarchy and represent actions as callables
+
+* WHY--
+  * Empower the bear writers to easily create a variety of action class instances or even new action classes according to the needs of their bears.
+  * Allow for easy creation of new actions that can handle a bunch of actions in one go, in the future.
+
+* HOW--  
+
+  1. Represent actions using callables i.e, either as callable instances of action classes or as functions. 
+  
+     Functions will represent those actions which don't need any data and just need to "*do something*". For instance, the `GitCommitBear` would benefit if there was an action that could do `git commit --amend`. This action does not require any data. So, it would be useful if the bear could do something like this:
+     ```
+     def amend_commit_action():
+     # code to amend commit
+    
+     class GitCommitBear (GlobalBear):
+       # code..
+       yield Result(.., actions_list= [amend_commit_action, ..])
+     ```
+  
+     In order to make this approach of representing actions as callables work, we need to make existing action classes create callable instances:
+     ```
+     class ResultAction:
+       def __call__(self, ...):
+         self.apply(self, ...)
+      
+       def apply(self, ...):
+         # code..
+     ```
+     
+  2. Define a more abstract parent of `ResultAction`-- `UserAction`
+  
+     ```
+     class UserAction:
+     
+       def __init__(..):
+         # code.. 
+         
+       def apply(self, ...):
+         raise NotImplementedError
+      
+       def get_metadata(cls):
+         # code..
+     ```
+     
+     A bear writer will be able to create a new action class that derives from this and override the `apply()` method according to his/her bear's needs. 
+     
+  3. Deprecate `apply_from_section()` method
+  
+     It is counter-intuitive to have 2 separate methods that can be used to apply an action. Hence we should keep only one- `apply()`. Here's how we may elegantly deprecate `apply_from_section()`:
+     
+     Allow an optional parameter - `section` - in the `apply()` method:
+     ```
+     class ResultAction (UserAction):
+       # code.. 
+       
+       def apply(self, .., section= None):
+         if section:
+           # extract parameters from the section
+     ```
+     ```
+     class SomeChildAction (ResultAction):
+       # code..
+       def apply(self, ..., section= None):
+         ResultAction.apply(self, ..., section)
+     ```
+  
+
+#### Task 4: Refactor the action classes
+
+* WHY--  
+
+  All the above mentioned tasks will have quite an immense effect upon how each existing action classes are defined. I want to dedicate a specific block of time to address such effects.
+  
+* HOW--
+
+  * The `apply()` method of all the action classes are currently passed the `Result` object that they act on. There will be no need for this after completing the above tasks as the `Result` objects themselves will contain the action class objects. So, all of them will need a change.
+  * Similarly, all the `is_applicable()` methods will also need to be refactored.
+  * Since, after the above tasks, coala will be able to suggest multiple patches using `Diff` objects attached to any user defined objects, the `ShowPatchAction` will need a complete makeover so that it may show adequate information about all the patch options provided by any action object in the `actions_list` of the concerned `Result` object.
+
+#### Task 5- Refactor the functions in ConsoleInteraction.py
+
+* WHY--  
+
+The coala interaction was designed based on actions being a separate entity of thier own and not as a part of the `Result` objects that they are applied to. Hence, many of the functions in ConsoleInteraction.py will need a complete makeover if we go ahead with this new result/action design. 
+
+* HOW--  
+
+  These functions will need to be modified:
+  * `print_result()`
+  * `acquire_actions_and_apply()`
+  * `ask_for_actions_and_apply()`
+  * `choose_action()`
+  * `try_to_apply_action()`
+
+### Milestones:
+
+The time alloted for each task includes completing the task and writing the relevant tests and documentation for the new code.
+
+#### Community Bonding (April 23 - May 14)
+Discuss and finalise the overall designs of the modifications to the `Result` class and the API that we create with the new `UserAction` class.
+
+#### Coding Phase 1 (May 15 - June 11)
+
+*May 15 - May 28:*  
+Task 1: Allow `Result` objects to define the actions applicable to them  
+
+*May 29 - June 11:*  
+Task 2: Make `Diff` objects a part of `ApplyPatchAction` objects instead of `Result` objects  
+
+#### Coding Phase 2 (June 12 - July 9)
+
+*June 12 - June 25:*  
+Task 3: Revamp the action classes' hierarchy 
+
+*June 26 - July 9:*  
+Task 5: Refactor the existing action classes
+
+#### Coding Final Phase (July 10 - August 13)
+
+*July 10- July 16:*  
+Task 5: Refactor the existing action classes *[continued]*
+
+*July 17 - July 30:*  
+Task 6: Refactor the code in ConsoleInteraction.py  
+
+*July 31 - August 6:*
+Update the coala turorials with the above changes
+
+*August 6 - August 13:*  
+Buffer time for any pending work
+
+-------------------------
+## OTHER COMMITMENTS
+
+I have my end semester exams for **6 days at the end of April**. Although, this overlaps with the community bonding period, I am sure that I will be able to acheive my milestones for the period because
+1. I am already involved in extensive discussions about the possible designs for the new features with Mischa Kruger
+1. it is only 6 days and even on those days I plan to be actively available on Gitter chat for any discussions 
+
+Starting mid-July, I will need to do 3 hours of compulsory lab work at my college for 3 days a week. Also, it takes me ~75 minutes in commute for a one way trip to college. That's a total of just **~17 hours per week**. I am sure that such a small time will not affect my ability to complete the project in any way.
+
+Apart from these, I have no other prior committments. I plan to invest 35-40 hours per week towards this project. Also, if need arises, I will be comfortable in spending >8 hours per day on the project.
+
+Also, coala is the only organisation that I have applied to for GSoC 2018.
+
+-------------------------
+## OTHER INFO
+
+**University:**  
+* NAME- Jadavpur University  
+* MAJOR- Information Technology  
+* CURRENT YEAR OF STUDY- 2nd
+* EXPECTED GRADUATION YEAR- 2020
+* DEGREE- Bachelor of Engineering
+
+**Alternate Contact:**  
+* INSTANT MESSAGING- (+91) 8697718413
+
+**Twitter handle:** [@nityeshaga](https://twitter.com/nityeshaga)
